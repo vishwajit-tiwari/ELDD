@@ -92,7 +92,9 @@
                 ```
             1. Install modules onto rootfs partition (or "/") of SD Card    
                 ```bash
-                make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=<path to sdcard rootfs partition> modules_install
+                make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=<path-to-sdcard-rootfs-partition> modules_install
+
+                sudo make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- modules_install  # It will install 5.15.45-v7l+ into "ls /lib/modules"
                 ```
                 * Example in my PC :
                     ```bash
