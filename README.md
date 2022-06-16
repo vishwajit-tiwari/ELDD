@@ -115,6 +115,8 @@ ___
 
     1. Board will start booting & then access it.
 
+---
+
 ## Corss Compiler & Kernel Environment for rpi4
 ### **Steps for cross compiling Kernel :**
 * **On Host(Ubuntu) :**
