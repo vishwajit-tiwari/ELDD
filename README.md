@@ -221,7 +221,7 @@ ___
     ```
 * Makefile
     * Makefile for Native Compilation 
-        ```bash
+        ```make
         # Makefile for Native Compilation 
         obj-m := helloModule.o 
         KERN_DIR = /lib/modules/$(shell uname -r)/build/
@@ -235,7 +235,7 @@ ___
 
         ```
     * Makefile for Cross Compilation
-        ```bash
+        ```make
         # Makefile for Cross Compilation 
         obj-m := helloModule.o 
         KERN_DIR = /lib/modules/5.15.45-v7l+/build/
