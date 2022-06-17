@@ -138,24 +138,24 @@ ___
         ```
     4. Apply the config file of rpi4 :
         * Check config file for your board(rpi4) using below command.
-        ```bash
-        ls arch/arm/configs
-        ```
+            ```bash
+            ls arch/arm/configs
+            ```
         * Default config file for rpi4 is **bcm2711_defconfig**.
         * Now apply config file using below command.
-        ```bash
-        make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2711_defconfig
-        ```
+            ```bash
+            make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- bcm2711_defconfig
+            ```
                 
     5. Build Kernel image & Kernel modules for rpi4 :
         ```bash
         make -j8 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules
         ``` 
         * Result of above command :
-        ```bash
-        ls arch/arm/boot
-        Zimage  # This is the result.
-        ```
+            ```bash
+            ls arch/arm/boot
+            Zimage  # This is the result.
+            ```
     6. Plug in your SD Card to your HOST PC(Ubuntu) :
         ```bash
         cp arch/arm/boot/zImage /media/<user_name of your PC>/boot
@@ -167,9 +167,9 @@ ___
         sudo make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- modules_install  # It will install 5.15.45-v7l+ into "ls /lib/modules"
         ```
         * Example in my PC :
-        ```bash
-        make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=/media/vishu/rootfs modules_install
-        ```
+            ```bash
+            make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=/media/vishu/rootfs modules_install
+            ```
         * Modules get install in **rootfs/lib/modules** path.                
             
     8. Configuring **config.txt** to boot our new Kernel.
@@ -177,13 +177,13 @@ ___
         cd /media/<user-name>/boot
         ```
         * Open **config.txt :**
-        ```bash
-        vim config.txt
-        ```
+            ```bash
+            vim config.txt
+            ```
         * Add below line at the end of the file and save file.
-        ```bash
-        kernel=zImage
-        ```
+            ```bash
+            kernel=zImage
+            ```
     9. if **ssh** & "wpa_supplicant.conf" files are not in your boot partition then follow steps-2 of flashing raspbian OS.
 
     10. Plug out your SD Card and insert into your Raspberry pi board.
@@ -193,9 +193,57 @@ ___
 ___
 
 ## **Day 3**
-### **Module Programing**
-    * module init
-    * module exit
-    * Makefile
-        * Makefile for Native Compilation 
-        * Makefile for Cross Compilation
+### Module Programing    
+* module init
+* module exit
+    ```c
+    #include<linux/init.h>
+    #include<linux/module.h>
+    #include<linux/kernel.h>
+
+    MODULE_AUTHOR("Any_Name");
+    MODULE_LICENSE("GPL");          // Tells Module bear free License
+    MODULE_DESCRIPTION("Hello World Module");
+
+    static int helloModule_init(void) {
+
+    printk(KERN_ALERT "Hello World!\nInserting Module into Kernel\n");
+    return 0;
+    }
+
+    static void helloModule_exit(void) {
+    
+    printk(KERN_ALERT"Good bye...\nRemoving Module from Kernel\n");
+    }
+
+    module_init(helloModule_init);  // Insert Module into Kernel
+    module_exit(helloModule_exit);  // Remove Module from Kernel
+    ```
+* Makefile
+    * Makefile for Native Compilation 
+        ```bash
+        # Makefile for Native Compilation 
+        obj-m := helloModule.o 
+        KERN_DIR = /lib/modules/$(shell uname -r)/build/
+        PWD = $(shell pwd)
+
+        all:
+	        make -C $(KERN_DIR) M=$(PWD) modules 
+
+        clean:
+	        make -C $(KERN_DIR) M=$(PWD) clean 
+
+        ```
+    * Makefile for Cross Compilation
+        ```bash
+        # Makefile for Cross Compilation 
+        obj-m := helloModule.o 
+        KERN_DIR = /lib/modules/5.15.45-v7l+/build/
+
+        all:
+	        make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -C $(KERN_DIR) M=$(PWD) modules 
+
+        clean:
+	        make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -C $(KERN_DIR) M=$(PWD) clean 
+
+        ```
