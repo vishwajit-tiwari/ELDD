@@ -232,8 +232,8 @@ ___
 
         clean:
 	        make -C $(KERN_DIR) M=$(PWD) clean 
-
         ```
+
     * Makefile for Cross Compilation
         ```make
         # Makefile for Cross Compilation 
@@ -245,5 +245,7 @@ ___
 
         clean:
 	        make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -C $(KERN_DIR) M=$(PWD) clean 
-
         ```
+
+## **Day 4**
+
