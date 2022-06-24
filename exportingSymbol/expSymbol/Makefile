@@ -1,6 +1,5 @@
-
-obj-m:= add.o kern_sym.o 
-KERN_DIR = /lib/modules/$(shell uname -r)/build/
+obj-m:=add.o kern_sym.o 
+KERN_DIR=/lib/modules/$(shell uname -r)/build/
 PWD = $(shell pwd)
 
 all:
