@@ -5,10 +5,10 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Vishwajit Tiwari");
 
-static int my_add(int a,int b) {
+/*static*/ int my_add(int a,int b) {
     return (a+b);
 }
-static int my_sub(int a,int b) {
+/*static*/ int my_sub(int a,int b) {
     return (a-b);
 }
 
