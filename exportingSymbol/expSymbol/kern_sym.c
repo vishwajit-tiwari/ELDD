@@ -7,7 +7,7 @@ MODULE_AUTHOR("VISHWAJIT TIWARI");
 MODULE_DESCRIPTION("Exporting Symbol to Kernel-Symbol-Table so that Other Modules can use them");
 
 // Function need to be exported
-static int my_add(int a, int b) {
+/*static*/ int my_add(int a, int b) {
     return (a+b);
 }
 
