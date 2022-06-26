@@ -1,6 +1,8 @@
 #include<linux/init.h>
 #include<linux/module.h>
 #include<linux/kernel.h>
+/*#include<linux/moduleparam.h>*/
+
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Vishwajit Tiwari");
@@ -9,11 +11,14 @@ MODULE_DESCRIPTION("Module Parameter from Command Line");
 // Variables to store command line arguments
 static char *charvar = "module";
 static int intvar = 10;
+static int array[20];
 // static bool statement = TRUE;
 
 // Macro to enable command line arguments
 module_param(charvar,charp,S_IRUGO);
 module_param(intvar,int,S_IRUGO);
+// module_param_array(name,type,number,permission);
+module_param_array(array,int,NULL,S_IRUGO);
 // module_param(statement,bool,S_IRUGO);
 
 // Module Entry
