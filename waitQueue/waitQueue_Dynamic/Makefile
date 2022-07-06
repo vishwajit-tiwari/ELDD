@@ -12,7 +12,8 @@ endif
 
 all:
 	$(MAKE) -C $(KERN_DIR) M=$(PWD) modules
+	gcc -o app1 app1.c 
 
 clean:
 	$(MAKE) -C $(KERN_DIR) M=$(PWD) clean
-
+	rm -rf app1

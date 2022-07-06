@@ -1,7 +1,7 @@
 /**
  * @file waitQueue1.c
  * @author Vishwajit Tiwari (tvishwajit@cdac.in)
- * @brief   CharDriver to implement Wait Queue 
+ * @brief   CharDriver : Wait Queue (Dynamic) 
  * @version 0.1
  * @date 2022-07-03
  * 
