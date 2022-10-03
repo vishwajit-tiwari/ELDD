@@ -28,6 +28,7 @@
 #include<linux/slab.h>              // for kmalloc function()
 #include<linux/wait.h>              // for wait Queue
 #include<linux/kthread.h>           // for Kernel Thread
+#include<linux/semaphore.h>         // for semaphore
 
 
 MODULE_LICENSE("GPL");
@@ -40,14 +41,17 @@ static struct class *dev_class;     // Return type of class_create (struct point
 #define MEM_SIZE 1024               // Kernel buffer size
 uint8_t *kernel_buffer;             // for kamlloc
 
+// For semaphore
+struct semaphore wr_semaphore;
+
 // Static method for waitQueue
-DECLARE_WAIT_QUEUE_HEAD(my_queu);
+DECLARE_WAIT_QUEUE_HEAD(my_queue);
 static struct task_struct *wait_thread;     // return type of kthread_create
 uint32_t read_count = 0;
 int wait_queue_flag = 0;
 
 // Dynamic method for waitQueue
-// wait_queue_head_t;
+// wait_queue_head_t my_queue;
 // init_waitqueue_head(&my_queue);
 
 /***
@@ -98,17 +102,21 @@ struct file_operations fops = {
 /***************************Thread Function****************************/
 static int myWait_function(void *unused) 
 {
-    pr_alert("Inside %s function\n", __FUNCTION__);
+    pr_alert("Inside : %s() function\n", __FUNCTION__);
 
     while (1)
     {
         pr_info("Wating for event....\n");
-        wait_event_interruptible(my_queu,wait_queue_flag != 0);
+        wait_event_interruptible(my_queue,wait_queue_flag != 0);
         if(wait_queue_flag == 2) {
-            pr_info("Event came from exit function\n");
+            pr_info("Event came from : exit() function\n");
             return 0;
         }
-        pr_info("Event came from read funcrtion - %d\n", ++read_count);
+        if(wait_queue_flag == 3) {
+            pr_info("Event came from : write() function\n");
+            return 0;
+        }
+        pr_info("Event came from : read() function : read-count = %d & wait-queue-flag = %d\n", ++read_count, wait_queue_flag);
         wait_queue_flag = 0;
     }
     do_exit(0);
@@ -120,7 +128,7 @@ static int myWait_function(void *unused)
 /****************************Open function*****************************/
 static int charDev_open(struct inode *pinode, struct file *pfile) 
 {
-    pr_info("Inside %s function\n", __FUNCTION__);
+    pr_info("Inside : %s() function\n", __FUNCTION__);
     pr_info("Opening Device File\n");
     return 0;
 }
@@ -129,7 +137,7 @@ static int charDev_open(struct inode *pinode, struct file *pfile)
 /************************Release Function******************************/
 static int charDev_release(struct inode *pinode, struct file *pfile)
 {
-    pr_info("Inside %s function\n", __FUNCTION__);
+    pr_info("Inside : %s() function\n", __FUNCTION__);
     pr_info("Closing Device File\n");
     return 0;
 }
@@ -138,8 +146,16 @@ static int charDev_release(struct inode *pinode, struct file *pfile)
 /***********************************Write Function******************************************/
 static ssize_t charDev_write(struct file *pfile, const char *ubuff, size_t len, loff_t *offp) 
 {
-    pr_info("Inside %s funcrtion\n", __FUNCTION__);
-    pr_info("Writing to Kernel Buffer\n");
+    pr_info("Inside : %s() function\n", __FUNCTION__);
+    pr_info("Writing to : Kernel Buffer\n");
+
+    //Acquiring semaphore lock
+    down(&wr_semaphore);
+    pr_info("Acquired semaphore lock\n");
+    pr_info("semaphore : locked\n");
+
+    // wait-queue flag
+    wait_queue_flag = 3;
 
     // Access to user space data
     if(copy_from_user(kernel_buffer,ubuff,len)) {
@@ -148,6 +164,16 @@ static ssize_t charDev_write(struct file *pfile, const char *ubuff, size_t len, 
 
     pr_info("Data write: Done!\n");
 
+    // Putting write function to sleep using wait-queue after write operation
+    wait_event_interruptible(my_queue, wait_queue_flag == 0);
+    pr_info("Write function : sleeping......\n");
+    pr_info("wait-queue : wating for interrupt\n");
+
+    // Releasing shemaphore lock
+    up(&wr_semaphore);
+    pr_info("Releasing semaphore lock\n");
+    pr_info("semaphore : unlocked\n");
+
     return len;
 }
 /*******************************************************************************************/
@@ -155,16 +181,20 @@ static ssize_t charDev_write(struct file *pfile, const char *ubuff, size_t len, 
 /**************************************Read Function****************************************/
 static ssize_t charDev_read(struct file *pfile, char __user *ubuff, size_t len, loff_t *offp) 
 {
-    pr_info("Inside %s function\n", __FUNCTION__);
-    pr_info("Reading from user application....");
+    pr_info("Inside : %s() function\n", __FUNCTION__);
+    pr_info("Reading from : user application....");
 
-    wait_queue_flag = 1;
-    wake_up_interruptible(&my_queu);    
+    // Wait queue flag
+    wait_queue_flag = 0;
+
+    // Waking-up task from queue
+    wake_up_interruptible(&my_queue);
+    pr_info("wake-up task from queue\n");
+    pr_info("wait-queue : interrupted\n"); 
 
     if(copy_to_user(ubuff,kernel_buffer,MEM_SIZE)) {
         pr_err("Error reading from user application!!!\n");
     }
-
     pr_info("Data read: Done!\n");
 
     return MEM_SIZE;
@@ -175,11 +205,11 @@ static ssize_t charDev_read(struct file *pfile, char __user *ubuff, size_t len, 
 /******************************Module Entry Section********************************/
 static int __init charDriver_init(void) 
 {
-    printk(KERN_ALERT "Inside %s module\n", __FUNCTION__);
+    printk(KERN_ALERT "Inside : %s() module\n", __FUNCTION__);
     pr_info("Inserting Char Driver into Kernel\n");
 
     // Allocating Major Number Dynamically
-    if((alloc_chrdev_region(&myDev,0,1,"charDriverWQ")) < 0) {
+    if((alloc_chrdev_region(&myDev,0,2,"charDriverWQ")) < 0) {
         pr_err("Can not allocate Major Number\n");
         return -1;
     }
@@ -189,7 +219,7 @@ static int __init charDriver_init(void)
     cdev_init(&my_cdev,&fops);
 
     // Adding charDevice to the system
-    if((cdev_add(&my_cdev,myDev,1)) < 0) {
+    if((cdev_add(&my_cdev,myDev,2)) < 0) {
         pr_err("Can not add device to the system\n");
         goto r_class;
     }
@@ -214,6 +244,11 @@ static int __init charDriver_init(void)
 
     strcpy(kernel_buffer,"Hello from Kernel Buffer!\n");
 
+    // Initializing semaphore
+    sema_init(&wr_semaphore,1);
+    // Initializing wait-queue Dynamically
+    // init_waitqueue_head(my_queue);
+
     // Create the Kernel Thread
     wait_thread = kthread_create(myWait_function,NULL,"my_WaitThread");
     if(wait_thread) {
@@ -224,7 +259,7 @@ static int __init charDriver_init(void)
         pr_err("Thread creation failed!\n");
     }
 
-    pr_info("Device Device Driver Inserted.....Sucessfully\n");
+    pr_info("Device Driver Inserted : Sucessfully\n");
 
     return 0;
 
@@ -246,7 +281,7 @@ static void __exit charDriver_exit(void)
     pr_info("Removing Device Driver from Kernel\n");
     // for wait queue
     wait_queue_flag = 2;
-    wake_up_interruptible(&my_queu);
+    wake_up_interruptible(&my_queue);
     // for device file
     device_destroy(dev_class,myDev);
     // Structure class for device
