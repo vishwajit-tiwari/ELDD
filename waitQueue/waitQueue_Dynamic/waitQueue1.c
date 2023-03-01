@@ -219,82 +219,24 @@ static int __init charDriver_init(void)
     cdev_init(&my_cdev,&fops);
 
     // Adding charDevice to the system
-    /**
-     * @def             : int cdev_add (struct cdev * p, dev_t dev, unsigned count);
-     * 
-     * @param   
-     * struct cdev * p  : the cdev structure for the device
-     * dev_t dev        : the first device number for which this device is responsible
-     * unsigned count   : the number of consecutive minor numbers corresponding to this device
-     * 
-     * @brief           : cdev_add adds the device represented by p to the system, making it live immediately. 
-     *                    A negative error code is returned on failure.
-    */
     if((cdev_add(&my_cdev,myDev,2)) < 0) {
         pr_err("Can not add device to the system\n");
         goto r_class;
     }
 
     // Creating class structre for device
-    /**
-     * @def     : struct class * __class_create(struct module * owner, const char * name, struct lock_class_key * key);
-     * 
-     * @param
-     * owner    : pointer to the module that is to “own” this struct class
-     * name     : pointer to a string for the name of this class.
-     * key      : the lock_class_key for this class; used by mutex lock debugging
-     * 
-     * @brief   : This is used to create a struct class pointer that can then be used in calls to device_create.
-     *          : Returns struct class pointer on success, or ERR_PTR on error.
-     *          : Note, the pointer created here is to be destroyed when finished by making a call to class_destroy
-
-    */
     if((dev_class = class_create(THIS_MODULE,"CharDriver_Class")) == NULL) {
         pr_err("Can not create class structure for device\n");
         goto r_class;
     }
 
     // Creating Device File
-    /**
-     * @def     : struct device * device_create(struct class * class, struct device * parent, dev_t devt,
-     *                                   void * drvdata, const char * fmt, ...);
-     * @param
-     * class    : pointer to the struct class that this device should be registered to
-     * parent   : pointer to the parent struct device of this new device, if any
-     * devt     : the dev_t for the char device to be added
-     * drvdata  : the data to be added to the device for callbacks
-     * fmt      : string for the device's name
-     * ...      : variable arguments
-     * 
-     * @brief   : This function can be used by char device classes. A struct device will be created in sysfs, registered to the specified class.
-     *          : A “dev” file will be created, showing the dev_t for the device, if the dev_t is not 0,0. If a pointer to a parent struct device is passed in, 
-     *            the newly created struct device will be a child of that device in sysfs. 
-     *            The pointer to the struct device will be returned from the call. 
-     *            Any further sysfs files that might be required can be created using this pointer.
-     *          : Returns struct device pointer on success, or ERR_PTR on error.
-     * 
-     * @note    : the struct class passed to this function must have previously been created with a call to class_create.
-
-    */
     if((device_create(dev_class,NULL,myDev,NULL,"charDev_deviceWQ")) == NULL) {
         pr_err("Can not create device file\n");
         goto r_device;
     }
 
     // Creating Physical Memory
-    /**
-     * @def         : void *kmalloc(size_t size, int flags);
-     * @param    
-     * size         : Size of the block to be allocated. 
-     * flags        : This is much more interesting, because it controls the behavior of kmalloc in a number of ways.
-     * 
-     * GFP_ATOMIC   : Used to allocate memory from interrupt handlers and other code outside of a process context. Never sleeps.
-     * GFP_KERNEL   : Normal allocation of kernel memory. May sleep.
-     * 
-     * @brief       : The function is fast (unless it blocks) and doesn't clear the memory it obtains; 
-     *                the allocated region still holds its previous content.[1] 
-     *                The allocated region is also contiguous in physical memory
-    */
     if((kernel_buffer = kmalloc(MEM_SIZE,GFP_KERNEL)) == 0) {
         pr_err("Can not allocate memory in Kernel\n");
         goto r_device;
@@ -303,29 +245,8 @@ static int __init charDriver_init(void)
     strcpy(kernel_buffer,"Hello from Kernel Buffer!\n");
 
     // Initializing semaphore
-    /**
-     * @def : int sem_init(sem_t *sem, int pshared, unsigned int value);
-     * Link with -pthread.
-     * 
-     * @param
-     * 
-     * sem      : unnamed semaphore
-     * pshared  : argument indicates whether this semaphore is to be shared between the threads of a process, or between processes.
-     * value    : specifies the initial value for the semaphore
-     * 
-     * If pshared has the value 0, then the semaphore is shared between the threads of a process, and should be located at some 
-     * address that is visible to all threads (e.g., a global variable, or a variable allocated dynamically on the heap).
-     * 
-     * If pshared is nonzero, then the semaphore is shared between processes, and should be located in a region of shared memory
-     * (see shm_open(3), mmap(2), and shmget(2)).(Since a child created by fork(2) inherits its parent's memory mappings, it can
-     * also access the semaphore.)  Any process that can access the shared memory region can operate on the semaphore using 
-     * sem_post(3), sem_wait(3), and so on.
-     *
-     * @brief   : sem_init() initializes the unnamed semaphore at the address pointed to by sem. 
-     *            
-    */
     sema_init(&wr_semaphore,1);
-    
+
     // Initializing wait-queue Dynamically
     // init_waitqueue_head(my_queue);
 
@@ -346,17 +267,6 @@ static int __init charDriver_init(void)
 // To free-up the resources
 r_device:
     class_destroy(dev_class);
-
-/**
- * @def     : void unregister_chrdev_region(dev_t from, unsigned count);
- * 
- * @param  
- * from     : the first in the range of numbers to unregister
- * count    : the number of device numbers to unregister
- * 
- * @brief   : This function will unregister a range of count device numbers, starting with from. 
- *            The caller should normally be the one who allocated those numbers in the first place...
-*/
 
 r_class:
     unregister_chrdev_region(myDev,1);
