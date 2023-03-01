@@ -219,18 +219,63 @@ static int __init charDriver_init(void)
     cdev_init(&my_cdev,&fops);
 
     // Adding charDevice to the system
+    /**
+     * @def             : int cdev_add (struct cdev * p, dev_t dev, unsigned count);
+     * 
+     * @param   
+     * struct cdev * p  : the cdev structure for the device
+     * dev_t dev        : the first device number for which this device is responsible
+     * unsigned count   : the number of consecutive minor numbers corresponding to this device
+     * 
+     * @brief           : cdev_add adds the device represented by p to the system, making it live immediately. 
+     *                    A negative error code is returned on failure.
+    */
     if((cdev_add(&my_cdev,myDev,2)) < 0) {
         pr_err("Can not add device to the system\n");
         goto r_class;
     }
 
     // Creating class structre for device
+    /**
+     * @def     : struct class * __class_create(struct module * owner, const char * name, struct lock_class_key * key);
+     * 
+     * @param
+     * owner    : pointer to the module that is to “own” this struct class
+     * name     : pointer to a string for the name of this class.
+     * key      : the lock_class_key for this class; used by mutex lock debugging
+     * 
+     * @brief   : This is used to create a struct class pointer that can then be used in calls to device_create.
+     *          : Returns struct class pointer on success, or ERR_PTR on error.
+     *          : Note, the pointer created here is to be destroyed when finished by making a call to class_destroy
+
+    */
     if((dev_class = class_create(THIS_MODULE,"CharDriver_Class")) == NULL) {
         pr_err("Can not create class structure for device\n");
         goto r_class;
     }
 
     // Creating Device File
+    /**
+     * @def     : struct device * device_create(struct class * class, struct device * parent, dev_t devt,
+     *                                   void * drvdata, const char * fmt, ...);
+     * @param
+     * class    : pointer to the struct class that this device should be registered to
+     * parent   : pointer to the parent struct device of this new device, if any
+     * devt     : the dev_t for the char device to be added
+     * drvdata  : the data to be added to the device for callbacks
+     * fmt      : string for the device's name
+     * ...      : variable arguments
+     * 
+     * @brief   : This function can be used by char device classes. A struct device will be created in sysfs, registered to the specified class.
+     *          : A “dev” file will be created, showing the dev_t for the device, if the dev_t is not 0,0. If a pointer to a parent struct device is passed in, 
+     *            the newly created struct device will be a child of that device in sysfs. 
+     *            The pointer to the struct device will be returned from the call. 
+     *            Any further sysfs files that might be required can be created using this pointer.
+     *          : Returns struct device pointer on success, or ERR_PTR on error.
+     * 
+     * @note    : the struct class passed to this function must have previously been created with a call to class_create.
+
+    */
     if((device_create(dev_class,NULL,myDev,NULL,"charDev_deviceWQ")) == NULL) {
         pr_err("Can not create device file\n");
         goto r_device;
@@ -266,6 +311,18 @@ static int __init charDriver_init(void)
 // To free-up the resources
 r_device:
     class_destroy(dev_class);
+
+/**
+ * @def     : void unregister_chrdev_region(dev_t from, unsigned count);
+ * 
+ * @param  
+ * from     : the first in the range of numbers to unregister
+ * count    : the number of device numbers to unregister
+ * 
+ * @brief   : This function will unregister a range of count device numbers, starting with from. 
+ *            The caller should normally be the one who allocated those numbers in the first place...
+*/
+
 r_class:
     unregister_chrdev_region(myDev,1);
     return -1;
