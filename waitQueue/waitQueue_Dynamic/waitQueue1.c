@@ -282,6 +282,19 @@ static int __init charDriver_init(void)
     }
 
     // Creating Physical Memory
+    /**
+     * @def         : void *kmalloc(size_t size, int flags);
+     * @param    
+     * size         : Size of the block to be allocated. 
+     * flags        : This is much more interesting, because it controls the behavior of kmalloc in a number of ways.
+     * 
+     * GFP_ATOMIC   : Used to allocate memory from interrupt handlers and other code outside of a process context. Never sleeps.
+     * GFP_KERNEL   : Normal allocation of kernel memory. May sleep.
+     * 
+     * @brief       : The function is fast (unless it blocks) and doesn't clear the memory it obtains; 
+     *                the allocated region still holds its previous content.[1] 
+     *                The allocated region is also contiguous in physical memory
+    */
     if((kernel_buffer = kmalloc(MEM_SIZE,GFP_KERNEL)) == 0) {
         pr_err("Can not allocate memory in Kernel\n");
         goto r_device;
@@ -290,7 +303,29 @@ static int __init charDriver_init(void)
     strcpy(kernel_buffer,"Hello from Kernel Buffer!\n");
 
     // Initializing semaphore
+    /**
+     * @def : int sem_init(sem_t *sem, int pshared, unsigned int value);
+     * Link with -pthread.
+     * 
+     * @param
+     * 
+     * sem      : unnamed semaphore
+     * pshared  : argument indicates whether this semaphore is to be shared between the threads of a process, or between processes.
+     * value    : specifies the initial value for the semaphore
+     * 
+     * If pshared has the value 0, then the semaphore is shared between the threads of a process, and should be located at some 
+     * address that is visible to all threads (e.g., a global variable, or a variable allocated dynamically on the heap).
+     * 
+     * If pshared is nonzero, then the semaphore is shared between processes, and should be located in a region of shared memory
+     * (see shm_open(3), mmap(2), and shmget(2)).(Since a child created by fork(2) inherits its parent's memory mappings, it can
+     * also access the semaphore.)  Any process that can access the shared memory region can operate on the semaphore using 
+     * sem_post(3), sem_wait(3), and so on.
+     *
+     * @brief   : sem_init() initializes the unnamed semaphore at the address pointed to by sem. 
+     *            
+    */
     sema_init(&wr_semaphore,1);
+    
     // Initializing wait-queue Dynamically
     // init_waitqueue_head(my_queue);
 
