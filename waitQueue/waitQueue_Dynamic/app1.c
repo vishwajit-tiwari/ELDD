@@ -81,6 +81,8 @@ int main(int argc, char const *argv[])
             break;
         
         default:
+            printf("Invalid option!!!\n");
+            perror("error!!! : ");
             break;
         }
     }

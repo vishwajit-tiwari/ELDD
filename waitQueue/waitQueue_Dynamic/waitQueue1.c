@@ -33,7 +33,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Vishwajit Tiwari");
-MODULE_DESCRIPTION("A charDriver to implemnet (WaitQueue Static Method)");
+MODULE_DESCRIPTION("A charDriver to implemnet (WaitQueue Dynamic Method)");
 
 dev_t myDev = 0;                    // Minor number
 static struct cdev my_cdev;         // For charDevice registration
@@ -45,13 +45,13 @@ uint8_t *kernel_buffer;             // for kamlloc
 struct semaphore wr_semaphore;
 
 // Static method for waitQueue
-DECLARE_WAIT_QUEUE_HEAD(my_queue);
+// DECLARE_WAIT_QUEUE_HEAD(my_queue);
 static struct task_struct *wait_thread;     // return type of kthread_create
 uint32_t read_count = 0;
 int wait_queue_flag = 0;
 
 // Dynamic method for waitQueue
-// wait_queue_head_t my_queue;
+wait_queue_head_t my_queue;
 // init_waitqueue_head(&my_queue);
 
 /***
@@ -165,9 +165,10 @@ static ssize_t charDev_write(struct file *pfile, const char *ubuff, size_t len, 
     pr_info("Data write: Done!\n");
 
     // Putting write function to sleep using wait-queue after write operation
-    wait_event_interruptible(my_queue, wait_queue_flag == 0);
     pr_info("Write function : sleeping......\n");
     pr_info("wait-queue : wating for interrupt\n");
+    wait_event_interruptible(my_queue, wait_queue_flag == 0);
+    
 
     // Releasing shemaphore lock
     up(&wr_semaphore);
@@ -182,7 +183,7 @@ static ssize_t charDev_write(struct file *pfile, const char *ubuff, size_t len, 
 static ssize_t charDev_read(struct file *pfile, char __user *ubuff, size_t len, loff_t *offp) 
 {
     pr_info("Inside : %s() function\n", __FUNCTION__);
-    pr_info("Reading from : user application....");
+    pr_info("Reading from : Kernel Buffer....");
 
     // Wait queue flag
     wait_queue_flag = 0;
@@ -248,7 +249,7 @@ static int __init charDriver_init(void)
     sema_init(&wr_semaphore,1);
 
     // Initializing wait-queue Dynamically
-    // init_waitqueue_head(my_queue);
+    init_waitqueue_head(&my_queue);
 
     // Create the Kernel Thread
     wait_thread = kthread_create(myWait_function,NULL,"my_WaitThread");
@@ -284,6 +285,10 @@ static void __exit charDriver_exit(void)
     // for wait queue
     wait_queue_flag = 2;
     wake_up_interruptible(&my_queue);
+
+    //Deallocate the memory space of Kernel Buffer
+    kfree(kernel_buffer);
+
     // for device file
     device_destroy(dev_class,myDev);
     // Structure class for device
