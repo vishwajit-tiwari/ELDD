@@ -42,10 +42,23 @@ There are some steps involved to use IOCTL.
 #include<linux/uaccess.h>           // for copy_to_user and copy_from_user
 #include<linux/slab.h>              // for kmalloc() function
 #include<linux/ioctl.h>             // for IOCTL operations
+#include<linux/time.h>              // Kernel timers
+#include<linux/jiffies>             // Jiffies
+#include<linux/gpio.h>              // for GPIO Pin
+#include<linux/delay.h>
+
+
+/*****************************Module Attributes*******************************/
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("VISHWAJIT TIWARI");
 MODULE_DESCRIPTION("A CharDriver Prog for IOCTL implementation");
+
+
+/*************************Preprocessor directives****************************/
+
+#define TIMEOUT 1000                // milliseconds for timer
+#define GPIO_21 (21)                // GPIO Pin selection
 
 /*Creating IOCTL Command In Driver*/
 #define WR_VALUE _IOW('a','a',int32_t*)
@@ -55,14 +68,22 @@ MODULE_DESCRIPTION("A CharDriver Prog for IOCTL implementation");
 #define NAME RW_CharDriver
 #define MEM_SIZE 1024
 
+
+/***************************Global variables*********************************/
+
 uint8_t *kernel_buffer;                 // for kmalloc()
 int32_t value = 0;                      // for IOCTL
 
 dev_t mydev = 0;                        // Creating Device Number
-static struct class *dev_class;         // Return type of class_create (struct pointer)
+static struct class *dev_class = NULL;         // Return type of class_create (struct pointer)
 static struct cdev my_cdev;             // For charDevice registration
 
-// Function prototypes
+static struct timer_list led_timer;                     // timer for LED
+static unsigned int count = 0;                          // Timer callback count
+static struct gpiochip_info * GPIO_Chip_Info = NULL;    // to get GPIO information
+
+/************************Function prototypes**********************************/
+
 static int      __init charDev_fops_init(void);
 static void     __exit charDev_fops_exit(void);
 static int      charDev_open(struct inode *pinode, struct file *pfile);
@@ -72,7 +93,8 @@ static ssize_t  charDev_write(struct file *filp, const char *Ubuf, size_t len, l
 static long     charDev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
 
-// File Operations Structure
+/************************File Operations Structure****************************/
+
 struct file_operations fops =
 {
     .owner          = THIS_MODULE,
@@ -84,7 +106,24 @@ struct file_operations fops =
 
 };
 
-/*This function will be called when we open the Device file*/
+
+/******************************Timer callback function******************************/
+void LED_timer_callback(struct timer_list *data)
+{
+    /*Write your timer functionality here*/
+    pr_alert("Inside: %s()\n", __FUNCTION__);
+    pr_info("LED Timer callback function called[%d]\n", count++);
+
+    /**
+     * Re-enable timer. Because this function will be called only first time.
+     * If we will re-enable this will work like periodic timer.
+    */
+   mod_timer(&led_timer, jiffies + msecs_to_jiffies(TIMEOUT));
+
+}
+
+
+/************This function will be called when we open the Device file**************/
 static int charDev_open(struct inode *pinode, struct file *pfile) 
 {
     pr_alert("Driver Open function called....!!!\n");
@@ -92,7 +131,7 @@ static int charDev_open(struct inode *pinode, struct file *pfile)
     return 0;
 }
 
-/*This function will be called when we close the Device file*/
+/************This function will be called when we close the Device file**************/
 static int charDev_release(struct inode *pinode, struct file *pfile) 
 {
     pr_alert("Driver Release function called......!!!\n");
@@ -106,6 +145,26 @@ static ssize_t charDev_write(struct file *filp, const char *Ubuf, size_t len, lo
 {
     printk(KERN_ALERT "This is the kernel write call...Inside %s call\n", __FUNCTION__);
     pr_info("Driver Write function called.........!!!\n");
+
+    uint8_t rec_buf[10] = {0};
+  
+    if( copy_from_user( rec_buf, buf, len ) > 0) {
+        pr_err("ERROR: Not all the bytes have been copied from user\n");
+    }
+  
+    pr_info("Write Function : GPIO_21 Set = %c\n", rec_buf[0]);
+  
+    if (rec_buf[0]=='1') {
+        //set the GPIO value to HIGH
+        gpio_set_value(GPIO_21, 1);
+    } 
+    else if (rec_buf[0]=='0') {
+        //set the GPIO value to LOW
+        gpio_set_value(GPIO_21, 0);
+    } 
+    else {
+        pr_err("Unknown command : Please provide either 1 or 0 \n");
+    }
     
     return len; 
 }
@@ -115,6 +174,20 @@ static ssize_t charDev_read(struct file *filp, char __user *Ubuf, size_t len, lo
 {
     printk(KERN_ALERT "This is the kernel read call...Inside %s call\n", __FUNCTION__);
     pr_info("Driver Read function called...........!!!\n");
+
+    unit8_t GPIO_state = 0;
+
+    // reading GPIO value
+    GPIO_state = gpio_get_value(GPIO_21);
+    
+    //write to user
+    len = 1;
+
+    if(copy_to_user(Ubuf, &GPIO_state, len)) 
+    {
+        pr_err("error: Not all the bytes have been copied to user\n");
+    }
+    pr_info("Read function: GPIO_21 = %d\n", GPIO_state);
 
     return 0;
 }
@@ -187,6 +260,17 @@ static int __init charDev_fops_init(void)
         goto r_device;
     }
 
+    /*Setup the timer to call LED_timer_callback*/
+    timer_setup(&led_timer, LED_timer_callback, 0);
+
+    /*Modify Kernel Timer's timeout*/
+    int retModTimer = mod_timer(&led_timer, jiffies + msecs_to_jiffies(TIMEOUT))
+    if(retModTimer == 0)
+        pr_info("mod_timer: of an inactive timer\n");
+    else
+        pr_info("mod_timer: of an active timer\n");
+
+
     pr_info("Device Driver Inserted... Successfully\n");
 
     return 0;
@@ -208,6 +292,8 @@ static void __exit charDev_fops_exit(void)
 {
     printk(KERN_ALERT "Inside %s Module\n", __FUNCTION__);
     printk(KERN_INFO "Removing charDev_fops from Kernel\n");
+    del_timer(&led_timer);                          // LED Timer
+    pr_info("Timer: deleted\n");
     device_destroy(dev_class,mydev);                // To destroy char device 
     class_destroy(dev_class);                       // To destroy device class
     cdev_del(&my_cdev);                             // To remove charDevice from the system
