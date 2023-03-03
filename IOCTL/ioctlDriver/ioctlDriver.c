@@ -46,6 +46,7 @@ There are some steps involved to use IOCTL.
 #include<linux/jiffies>             // Jiffies
 #include<linux/gpio.h>              // for GPIO Pin
 #include<linux/delay.h>
+#include<linux/err.h>
 
 
 /*****************************Module Attributes*******************************/
@@ -57,7 +58,7 @@ MODULE_DESCRIPTION("A CharDriver Prog for IOCTL implementation");
 
 /*************************Preprocessor directives****************************/
 
-#define TIMEOUT 1000                // milliseconds for timer
+// #define TIMEOUT 1000                // milliseconds for timer
 #define GPIO_21 (21)                // GPIO Pin selection
 
 /*Creating IOCTL Command In Driver*/
@@ -75,12 +76,13 @@ uint8_t *kernel_buffer;                 // for kmalloc()
 int32_t value = 0;                      // for IOCTL
 
 dev_t mydev = 0;                        // Creating Device Number
-static struct class *dev_class = NULL;         // Return type of class_create (struct pointer)
+static struct class *dev_class = NULL;  // Return type of class_create (struct pointer)
 static struct cdev my_cdev;             // For charDevice registration
 
 static struct timer_list led_timer;                     // timer for LED
 static unsigned int count = 0;                          // Timer callback count
 static struct gpiochip_info * GPIO_Chip_Info = NULL;    // to get GPIO information
+uint32_t TIMEOUT = 5000;                                // 5000 millisecond
 
 /************************Function prototypes**********************************/
 
@@ -148,7 +150,7 @@ static ssize_t charDev_write(struct file *filp, const char *Ubuf, size_t len, lo
 
     uint8_t rec_buf[10] = {0};
   
-    if( copy_from_user( rec_buf, buf, len ) > 0) {
+    if( copy_from_user( rec_buf, Ubuf, len ) > 0) {
         pr_err("ERROR: Not all the bytes have been copied from user\n");
     }
   
@@ -206,6 +208,9 @@ static long charDev_ioctl(struct file *file, unsigned int cmd, unsigned long arg
             break;
 
         case RD_VALUE:
+
+            value = get_gpio(GPIO_21);
+
             if( copy_to_user((int32_t*) arg, &value, sizeof(value)) )
             {
                 pr_err("Data Read : Err!\n");
